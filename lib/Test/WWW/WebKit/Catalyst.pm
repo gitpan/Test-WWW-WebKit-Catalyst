@@ -32,9 +32,9 @@ use Moose;
 use IO::Socket::INET;
 use Catalyst::EngineLoader;
 
-extends 'Test::WWW::WebKit';
+extends 'Test::WWW::WebKit' => { -version => 0.03 };
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 has app => (
     is       => 'ro',
@@ -51,10 +51,11 @@ has server => (
     is => 'rw',
 );
 
-after DESTROY => sub {
+before DESTROY => sub {
     my ($self) = @_;
     return unless $self->server_pid;
 
+    local $SIG{PIPE} = 'IGNORE';
     kill 15, $self->server_pid;
     close $self->server;
 };
@@ -92,7 +93,7 @@ sub start_catalyst_server {
 
             my $loader = Catalyst::EngineLoader->new(application_name => $self->app);
             eval {
-                $catalyst = $loader->auto(port => $port, host => 'localhost');
+                $catalyst = $self->load_application($loader, $port);
             };
             warn $@ if $@;
             last unless $@;
@@ -103,6 +104,12 @@ sub start_catalyst_server {
 
         exit 1;
     }
+}
+
+sub load_application {
+    my ($self, $loader, $port) = @_;
+
+    return $loader->auto(port => $port, host => 'localhost');
 }
 
 before init => sub {
